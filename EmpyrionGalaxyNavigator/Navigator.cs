@@ -76,7 +76,7 @@ namespace EmpyrionGalaxyNavigator
 
             if(player.playfield == route.Target)
             {
-                InformPlayer(player.entityId, $"Congratulation you have reached '{route.NextLocation}'");
+                InformPlayer(player.entityId, $"Congratulation you have reached '{route.NextLocation}' {(string.IsNullOrEmpty(route.Alias) ? "" : $" now fly to '{route.Alias}'")}");
 
                 Configuration.Current.NavigationTargets.TryRemove(player.steamId, out _);
                 Configuration.Save();
@@ -85,8 +85,8 @@ namespace EmpyrionGalaxyNavigator
 
             if (player.playfield != route.CurrentLocation || route.CurrentLocation == route.NextLocation)
             {
-                var currentTarget = route.Target;
-                var newRoute = GalaxyMap.Navigate(player.playfield, currentTarget);
+                var currentRoute = route;
+                var newRoute = GalaxyMap.Navigate(player.playfield, currentRoute.Target);
 
                 route = new PlayerTarget()
                 {
@@ -95,7 +95,8 @@ namespace EmpyrionGalaxyNavigator
                     CurrentLocation = player.playfield,
                     NextLocation    = newRoute.Skip(1).First().Name,
                     LastMessage     = DateTime.Now,
-                    Target          = currentTarget
+                    Target          = currentRoute.Target,
+                    Alias           = currentRoute.Alias
                 };
             }
 
@@ -110,6 +111,8 @@ namespace EmpyrionGalaxyNavigator
         {
             var P = await Request_Player_Info(playerId.ToId());
             var target = arguments["target"]?.Trim();
+            var alias = Configuration.Current.Aliases.FirstOrDefault(A => A.Alias == target);
+            if (alias != null) target = alias.PlayfieldName;
 
             if (!GalaxyMap.Exists(target))
             {
@@ -121,13 +124,13 @@ namespace EmpyrionGalaxyNavigator
 
             if(route.Count <= 1)
             {
-                InformPlayer(playerId, $"Sorry, no route from '{P.playfield}' to '{target}' found");
+                InformPlayer(playerId, $"Sorry, no route from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}' found");
                 return;
             }
 
             var answer = await ShowDialog(playerId, P,
-                $"Travel from '{P.playfield}' to '{target}'",
-                $"Distance: {(int)route.Aggregate((double)0, (D, T) => D + T.Distance / 10)} AU\n{route.Aggregate("", (N, T) => N + "\n" + T.Name)}", "Yes", "No");
+                $"Travel from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}'",
+                $"Distance: {(int)route.Aggregate((double)0, (D, T) => D + T.Distance / 10)} AU\n{route.Aggregate("", (N, T) => N + "\n" + T.Name)}{(alias == null ? "" : $"\n{alias.Alias}")}", "Yes", "No");
             if (answer.Id != P.entityId || answer.Value != 0) return;
 
             var playerTarget = new PlayerTarget() {
@@ -136,7 +139,8 @@ namespace EmpyrionGalaxyNavigator
                 CurrentLocation = P.playfield,
                 NextLocation    = route.Skip(1).First().Name,
                 LastMessage     = DateTime.Now,
-                Target          = target
+                Target          = target,
+                Alias           = alias?.Alias 
             };
 
             Configuration.Current.NavigationTargets.AddOrUpdate(P.steamId, playerTarget, (K, D) => playerTarget);
@@ -153,7 +157,7 @@ namespace EmpyrionGalaxyNavigator
         private async Task DisplayHelp(int playerId)
         {
             var P = await Request_Player_Info(playerId.ToId());
-            await DisplayHelp(playerId, Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: {P.playfield} -> {target.Target}" : null);
+            await DisplayHelp(playerId, Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: '{P.playfield}' -> '{target.Target}{(string.IsNullOrEmpty(target.Alias) ? "" : $" / {target.Alias}")}'" : null);
         }
 
         private void LoadConfiguration()
