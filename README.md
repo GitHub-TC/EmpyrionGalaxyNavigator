@@ -1,4 +1,4 @@
-﻿# EmpyrionGalaxyNavigator
+﻿# Empyrion Galaxy Navigator
 ## Installation
 1. Download der aktuellen ZIP datei von https://github.com/GitHub-TC/EmpyrionGalaxyNavigator/releases
 1. Upload der Datei im EWA (EmpyrionWebAccess) MOD oder händische installation mit dem ModLoader aus https://github.com/GitHub-TC/EmpyrionGalaxyNavigator
@@ -29,7 +29,7 @@ English-Version:
 
 ---
 
-# Empyrion ShipBuying
+# Empyrion Galaxy Navigator
 ## installation
 1. Download the latest ZIP file from https://github.com/GitHub-TC/EmpyrionGalaxyNavigator/releases
 1. Upload the file in the EWA (EmpyrionWebAccess) MOD or manual installation with the ModLoader from https://github.com/GitHub-TC/EmpyrionGalaxyNavigator
@@ -44,6 +44,9 @@ This can be used to start a navigation through the galaxy, which guides you thro
 * \\nav help =&gt; List of commands
 * \\nav stop =&gt; Cancel a running navigation
 * \\nav &lt;target&gt; =&gt; This can be used to start a navigation from the current location to the destination &lt;target&gt; e.g. \ nav Akua
+
+![](Screenshots/Route.png)
+![](Screenshots/Travel.png)
 
 ## Configuration
 * LogLevel: Logging control
