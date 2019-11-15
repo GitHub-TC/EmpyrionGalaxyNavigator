@@ -7,6 +7,7 @@ using System.Collections.Generic;
 
 namespace EmpyrionGalaxyNavigator
 {
+    [Serializable]
     public class PlayerTarget
     {
         public int Id { get; set; }
@@ -18,12 +19,14 @@ namespace EmpyrionGalaxyNavigator
         public DateTime LastMessage { get; set; }
     }
 
+    [Serializable]
     public class AliasName
     {
         public string PlayfieldName { get; set; }
         public string Alias { get; set; }
     }
 
+    [Serializable]
     public class Configuration
     {
         [JsonConverter(typeof(StringEnumConverter))]

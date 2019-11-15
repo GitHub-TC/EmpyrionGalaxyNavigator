@@ -26,35 +26,68 @@ namespace EmpyrionGalaxyNavigator
         public List<string> Deny { get; set; }
     }
 
+    public class SolarSystems
+    {
+        public string Name { get; set; }
+        public List<int> Coordinates { get; set; }
+        public List<SectorData> Sectors { get; set; }
+    }
+
     public class SectorsData
     {
         public List<SectorData> Sectors { get; set; }
+        public List<SolarSystems> SolarSystems { get; set; }
     }
 
     public class GalaxyMap
     {
         private const float MaxWarpDistance = 250;
 
-        public SectorsData SectorsData { get; set; }
+        public List<SectorData> Sectors { get; set; }
         public Map GalaxyNavMap { get; private set; }
         public Dictionary<string, Node> GalaxyNodes { get; private set; }
 
         public bool Exists(string name)
         {
-            return SectorsData.Sectors.Any(S => S.Playfields.Any(P => P[1] == name));
+            return Sectors.Any(S => S.Playfields.Any(P => P[1] == name));
         }
 
         public void ReadSectors(string sectorsYaml)
         {
-            SectorsData = YamlExtensions.YamlToObject<SectorsData>(new StringReader(sectorsYaml));
+            Sectors = FlattenSectors(YamlExtensions.YamlToObject<SectorsData>(new StringReader(sectorsYaml)));
             BuildGalaxyNavMap();
+        }
+
+        public static List<SectorData> FlattenSectors(SectorsData sectorsData)
+        {
+            if(sectorsData.SolarSystems == null) return sectorsData.Sectors;
+
+            var sectors = sectorsData.Sectors.ToList();
+
+            sectorsData.SolarSystems.ForEach(U => { 
+                U.Sectors.ForEach(S => {
+                   sectors.Add(new SectorData(){
+                        Coordinates         = new[]{ S.Coordinates[0] + U.Coordinates[0], S.Coordinates[1] + U.Coordinates[1], S.Coordinates[2] + U.Coordinates[2]}.ToList(),     
+                        Color               = S.Color,           
+                        Icon                = S.Icon,            
+                        OrbitLine           = S.OrbitLine,       
+                        SectorMapType       = S.SectorMapType,   
+                        ImageTemplateDir    = S.ImageTemplateDir,
+                        Playfields          = S.Playfields,      
+                        Allow               = S.Allow,           
+                        Deny                = S.Deny,            
+                   }); 
+                });
+            });
+
+            return sectors;
         }
 
         private void BuildGalaxyNavMap()
         {
             GalaxyNavMap = new Map();
 
-            var allOrbits = SectorsData.Sectors
+            var allOrbits = Sectors
                 .Where(S => S.SectorMapType.ToLowerInvariant() != "none")
                 .Select(S =>
                 {
@@ -69,7 +102,7 @@ namespace EmpyrionGalaxyNavigator
                 })
                 .ToDictionary(O => O.Name, O => O);
 
-            SectorsData.Sectors.ForEach(S => {
+            Sectors.ForEach(S => {
                 var orbit = S.Playfields.Last();
                 var orbitNode = new Node()
                 {

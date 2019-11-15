@@ -131,7 +131,11 @@ namespace EmpyrionGalaxyNavigator
             var answer = await ShowDialog(playerId, P,
                 $"Travel from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}'",
                 $"Distance: {(int)route.Aggregate((double)0, (D, T) => D + T.Distance / 10)} AU\n{route.Aggregate("", (N, T) => N + "\n" + T.Name)}{(alias == null ? "" : $"\n{alias.Alias}")}", "Yes", "No");
-            if (answer.Id != P.entityId || answer.Value != 0) return;
+            if (answer.Id != P.entityId || answer.Value != 0)
+            {
+                MessagePlayer(playerId, $"Navigation canceled from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}'", MessagePriorityType.Alarm);
+                return;
+            }
 
             var playerTarget = new PlayerTarget() {
                 Id              = P.entityId,
@@ -145,6 +149,8 @@ namespace EmpyrionGalaxyNavigator
 
             Configuration.Current.NavigationTargets.AddOrUpdate(P.steamId, playerTarget, (K, D) => playerTarget);
             Configuration.Save();
+
+            MessagePlayer(playerId, $"Navigation started from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}' next target is {playerTarget.NextLocation}", MessagePriorityType.Alarm);
         }
 
         private async Task StopNavigation(int playerId)
