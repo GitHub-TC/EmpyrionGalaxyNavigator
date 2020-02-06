@@ -137,7 +137,7 @@ namespace EmpyrionGalaxyNavigator
                         if (O.Deny  != null && O.Deny .Contains(T.Key)) warp = false;
                         if (O.Allow != null && O.Allow.Contains(T.Key)) warp = true;
 
-                        if(warp) N.Connections.Add(new Edge(){ ConnectedNode = GalaxyNodes[T.Key], Cost = Math.Min(MaxWarpDistance, dist)});
+                        if(warp) N.Connections.Add(new Edge(){ ConnectedNode = GalaxyNodes[T.Key], Cost = dist});
                     });
             });
 

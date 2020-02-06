@@ -33,7 +33,7 @@ namespace EmpyrionGalaxyNavigator
         public LogLevel LogLevel { get; set; } = LogLevel.Message;
         public string ChatCommandPrefix { get; set; } = "/\\";
         public int MessageLoopMS { get; set; } = 10000;
-        public List<AliasName> Aliases { get; set; } = new List<AliasName>() { new AliasName() { PlayfieldName = "Playfieldname", Alias = "Alias" } };
+        public List<AliasName> Aliases { get; set; } = new List<AliasName>();
         public ConcurrentDictionary<string, PlayerTarget> NavigationTargets { get; set; } = new ConcurrentDictionary<string, PlayerTarget>();
     }
 }

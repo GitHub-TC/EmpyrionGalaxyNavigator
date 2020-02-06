@@ -170,6 +170,7 @@ namespace EmpyrionGalaxyNavigator
         {
             ConfigurationManager<Configuration>.Log = Log;
             Configuration = new ConfigurationManager<Configuration>() { ConfigFilename = Path.Combine(EmpyrionConfiguration.SaveGameModPath, "Configuration.json") };
+            Configuration.CreateDefaults = (C) => C.Aliases.Add(new AliasName() { PlayfieldName = "Playfieldname", Alias = "Alias" });
 
             Configuration.Load();
             Configuration.Save();
