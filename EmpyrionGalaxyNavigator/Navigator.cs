@@ -36,7 +36,7 @@ namespace EmpyrionGalaxyNavigator
                 ChatCommandManager.CommandPrefix = Configuration.Current.ChatCommandPrefix;
 
                 GalaxyMap = new GalaxyMap();
-                GalaxyMap.ReadSectors(File.ReadAllText(Path.Combine(EmpyrionConfiguration.SaveGamePath, "Sectors", "sectors.yaml")));
+                GalaxyMap.ReadSectors(Path.Combine(EmpyrionConfiguration.SaveGamePath, "Sectors"));
 
                 ChatCommands.Add(new ChatCommand(@"nav help",           (I, A) => DisplayHelp    (I.playerId), "display help"));
                 ChatCommands.Add(new ChatCommand(@"nav stop",           (I, A) => StopNavigation (I.playerId), "stops navigation"));

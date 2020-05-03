@@ -30,11 +30,13 @@ namespace EmpyrionGalaxyNavigator
     {
         public string Name { get; set; }
         public List<int> Coordinates { get; set; }
+        public string StarClass { get; set; }
         public List<SectorData> Sectors { get; set; }
     }
 
     public class SectorsData
     {
+        public bool GalaxyMode { get; set; }
         public List<SectorData> Sectors { get; set; }
         public List<SolarSystems> SolarSystems { get; set; }
     }
@@ -52,31 +54,64 @@ namespace EmpyrionGalaxyNavigator
             return Sectors.Any(S => S.Playfields.Any(P => P[1] == name));
         }
 
-        public void ReadSectors(string sectorsYaml)
+        public void ReadSectors(string path)
         {
-            Sectors = FlattenSectors(YamlExtensions.YamlToObject<SectorsData>(new StringReader(sectorsYaml)));
+            Sectors = FlattenSectors(ReadSectorFiles(path));
             BuildGalaxyNavMap();
+        }
+
+        public void ReadSectorsData(string sectorsData)
+        {
+            Sectors = FlattenSectors(YamlExtensions.YamlToObject<SectorsData>(new StringReader(sectorsData)));
+            BuildGalaxyNavMap();
+        }
+
+        public static SectorsData ReadSectorFiles(string path)
+        {
+            SectorsData result;
+            using (var input = File.OpenText(Path.Combine(path, "Sectors.yaml")))
+            {
+                result = YamlExtensions.YamlToObject<SectorsData>(input);
+            }
+
+            if (result.GalaxyMode)
+            {
+                Directory.GetFiles(path, "Sectors*.yaml")
+                    .Where(F => !Path.GetFileName(F).Equals("Sectors.yaml", StringComparison.InvariantCultureIgnoreCase))
+                    .ToList()
+                    .ForEach(F =>
+                    {
+                        using (var input = File.OpenText(F))
+                        {
+                            var AddSectorsData = YamlExtensions.YamlToObject<SectorsData>(input);
+                            if (AddSectorsData.GalaxyMode) result.SolarSystems.AddRange(AddSectorsData.SolarSystems);
+                        }
+                    });
+            }
+
+            return result;
         }
 
         public static List<SectorData> FlattenSectors(SectorsData sectorsData)
         {
-            if(sectorsData.SolarSystems == null) return sectorsData.Sectors;
+            if (sectorsData.SolarSystems == null) return sectorsData.Sectors;
 
             var sectors = sectorsData.Sectors?.ToList() ?? new List<SectorData>();
 
-            sectorsData.SolarSystems.ForEach(U => { 
+            sectorsData.SolarSystems.ForEach(U => {
                 U.Sectors.ForEach(S => {
-                   sectors.Add(new SectorData(){
-                        Coordinates         = new[]{ S.Coordinates[0] + U.Coordinates[0], S.Coordinates[1] + U.Coordinates[1], S.Coordinates[2] + U.Coordinates[2]}.ToList(),     
-                        Color               = S.Color,           
-                        Icon                = S.Icon,            
-                        OrbitLine           = S.OrbitLine,       
-                        SectorMapType       = S.SectorMapType,   
+                    sectors.Add(new SectorData()
+                    {
+                        Coordinates         = new[] { S.Coordinates[0] + U.Coordinates[0], S.Coordinates[1] + U.Coordinates[1], S.Coordinates[2] + U.Coordinates[2] }.ToList(),
+                        Color               = S.Color,
+                        Icon                = S.Icon,
+                        OrbitLine           = S.OrbitLine,
+                        SectorMapType       = S.SectorMapType,
                         ImageTemplateDir    = S.ImageTemplateDir,
-                        Playfields          = S.Playfields,      
-                        Allow               = S.Allow,           
-                        Deny                = S.Deny,            
-                   }); 
+                        Playfields          = S.Playfields,
+                        Allow               = S.Allow,
+                        Deny                = S.Deny,
+                    });
                 });
             });
 
@@ -88,7 +123,7 @@ namespace EmpyrionGalaxyNavigator
             GalaxyNavMap = new Map();
 
             var allOrbits = Sectors
-                .Where(S => S.SectorMapType.ToLowerInvariant() != "none")
+                .Where(S => S.SectorMapType == null || (S.SectorMapType.ToLowerInvariant() != "none" && S.SectorMapType.ToLowerInvariant() != "warptarget"))
                 .Select(S =>
                 {
                     var orbit = S.Playfields.Last();
