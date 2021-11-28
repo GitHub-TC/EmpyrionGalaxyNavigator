@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace EmpyrionGalaxyNavigator
@@ -21,6 +22,7 @@ namespace EmpyrionGalaxyNavigator
         public Navigator()
         {
             EmpyrionConfiguration.ModName = "EmpyrionGalaxyNavigator";
+            SaveGameDBAccess.Log = Log;
         }
 
         public override void Initialize(ModGameAPI dediAPI)
@@ -36,11 +38,12 @@ namespace EmpyrionGalaxyNavigator
                 ChatCommandManager.CommandPrefix = Configuration.Current.ChatCommandPrefix;
 
                 GalaxyMap = new GalaxyMap();
-                GalaxyMap.ReadSectors(Path.Combine(EmpyrionConfiguration.SaveGamePath, "Sectors"));
+                GalaxyMap.ReadDbData(Path.Combine(EmpyrionConfiguration.SaveGamePath, "global.db"));
 
-                ChatCommands.Add(new ChatCommand(@"nav help",           (I, A) => DisplayHelp    (I.playerId), "display help"));
-                ChatCommands.Add(new ChatCommand(@"nav stop",           (I, A) => StopNavigation (I.playerId), "stops navigation"));
-                ChatCommands.Add(new ChatCommand(@"nav (?<target>.*)",  (I, A) => StartNavigation(I.playerId, A), "start a navigation to (target)"));
+                ChatCommands.Add(new ChatCommand(@"nav help",               (I, A) => DisplayHelp    (I.playerId), "display help"));
+                ChatCommands.Add(new ChatCommand(@"nav stop",               (I, A) => StopNavigation (I.playerId), "stops navigation"));
+                ChatCommands.Add(new ChatCommand(@"nav setwarp (?<LY>.*)",  (I, A) => SetWarpDistance(I.playerId, A), "set the warp distance for navigation to (LY)"));
+                ChatCommands.Add(new ChatCommand(@"nav (?<target>.*)",      (I, A) => StartNavigation(I.playerId, A), "start a navigation to (target)"));
 
                 Event_Player_ChangedPlayfield += Navigator_Event_Player_ChangedPlayfield;
 
@@ -72,10 +75,17 @@ namespace EmpyrionGalaxyNavigator
         private void Navigator_Event_Player_Info(PlayerInfo player)
         {
             if (!Configuration.Current.NavigationTargets.TryGetValue(player.steamId, out var route)) return;
-            if (player.playfield == route.CurrentLocation && (DateTime.Now - route.LastMessage).TotalMilliseconds < Configuration.Current.MessageLoopMS) return;
 
-            if(player.playfield == route.Target)
+            var currentPlayfield = player.playfield;
+            int sunPlayfield = currentPlayfield.IndexOf(" [Sun ");
+            if(sunPlayfield > 0) currentPlayfield = currentPlayfield.Substring(0, sunPlayfield);
+
+            if (currentPlayfield == route.CurrentLocation && (DateTime.Now - route.LastMessage).TotalMilliseconds < Configuration.Current.MessageLoopMS) return;
+
+            if(currentPlayfield == route.Target)
             {
+                GalaxyMap.DbAccess.ClearPathMarkers(player.entityId);
+
                 InformPlayer(player.entityId, $"Congratulation you have reached '{route.NextLocation}' {(string.IsNullOrEmpty(route.Alias) ? "" : $" now fly to '{route.Alias}'")}");
 
                 Configuration.Current.NavigationTargets.TryRemove(player.steamId, out _);
@@ -83,32 +93,55 @@ namespace EmpyrionGalaxyNavigator
                 return;
             }
 
-            if (player.playfield != route.CurrentLocation || route.CurrentLocation == route.NextLocation)
+            if (currentPlayfield != route.CurrentLocation || route.CurrentLocation == route.NextLocation)
             {
-                var currentRoute = route;
-                var newRoute = GalaxyMap.Navigate(player.playfield, currentRoute.Target);
+                var currentRoute      = route;
+                var newRoute          = GalaxyMap.Navigate(currentPlayfield, currentRoute.Target, MaxTravelDistance(player.entityId) * Const.SectorsPerLY);
 
                 route = new PlayerTarget()
                 {
                     Id              = player.entityId,
                     Name            = player.playerName,
-                    CurrentLocation = player.playfield,
-                    NextLocation    = newRoute.Skip(1).First().Name,
+                    CurrentLocation = currentPlayfield,
+                    NextLocation    = newRoute.First().Name,
                     LastMessage     = DateTime.Now,
                     Target          = currentRoute.Target,
                     Alias           = currentRoute.Alias
                 };
+
+                GalaxyMap.DbAccess.InsertBookmarks(newRoute.Take(1), player.factionId, player.entityId, GameAPI.Game_GetTickTime());
             }
 
-            InformPlayer(player.entityId, $"Please travel from '{player.playfield}' to '{route.NextLocation}'");
+            InformPlayer(player.entityId, $"Please travel from '{currentPlayfield}' to '{route.NextLocation}'");
 
             route.LastMessage = DateTime.Now;
             Configuration.Current.NavigationTargets.AddOrUpdate(player.steamId, route, (K, D) => route);
             Configuration.Save();
         }
 
+        private double MaxTravelDistance(int playerId) 
+            => Configuration.Current.Player.SingleOrDefault(p => p.PlayerId == playerId)?.Distance ?? 30;
+
+        private async Task SetWarpDistance(int playerId, Dictionary<string, string> arguments)
+        {
+            var P = await Request_Player_Info(playerId.ToId());
+            var playerInfo = Configuration.Current.Player.SingleOrDefault(p => p.PlayerId == playerId);
+            if (playerInfo == null) Configuration.Current.Player.Add(playerInfo = new PlayerWarpDistance());
+
+            var dist = int.TryParse(arguments["LY"]?.Trim(), out var ly) ? ly : 30;
+            playerInfo.PlayerId = playerId;
+            playerInfo.Name     = P.playerName;
+            playerInfo.Distance = dist;
+
+            Configuration.Save();
+
+            InformPlayer(playerId, $"Set warp distance to {dist} LY for route navigation.");
+        }
+
         private async Task StartNavigation(int playerId, Dictionary<string, string> arguments)
         {
+            GalaxyMap.UpdateFromDb();
+
             var P = await Request_Player_Info(playerId.ToId());
             var target = arguments["target"]?.Trim();
             var alias = Configuration.Current.Aliases.FirstOrDefault(A => A.Alias == target);
@@ -120,7 +153,10 @@ namespace EmpyrionGalaxyNavigator
                 return;
             }
 
-            var route = GalaxyMap.Navigate(P.playfield, target);
+            target = GalaxyMap.RealName(target);
+
+            var maxTravelDistance = MaxTravelDistance(playerId);
+            var route = GalaxyMap.Navigate(P.playfield, target, maxTravelDistance * Const.SectorsPerLY);
 
             if(route.Count <= 1)
             {
@@ -130,7 +166,7 @@ namespace EmpyrionGalaxyNavigator
 
             var answer = await ShowDialog(playerId, P,
                 $"Travel from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}'",
-                $"Distance: {(int)route.Aggregate((double)0, (D, T) => D + T.Distance / 10)} AU\n{route.Aggregate("", (N, T) => N + "\n" + T.Name)}{(alias == null ? "" : $"\n{alias.Alias}")}", "Yes", "No");
+                $"Distance: {(int)route.Aggregate((double)0, (D, T) => D + T.Distance / Const.SectorsPerLY)} LY with max {maxTravelDistance} LY warp capacity\n{route.Aggregate("", (N, T) => $"{N}\n{T}")}{(alias == null ? "" : $"\n{alias.Alias}")}", "Yes", "No");
             if (answer.Id != P.entityId || answer.Value != 0)
             {
                 MessagePlayer(playerId, $"Navigation canceled from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}'", MessagePriorityType.Alarm);
@@ -141,7 +177,7 @@ namespace EmpyrionGalaxyNavigator
                 Id              = P.entityId,
                 Name            = P.playerName,
                 CurrentLocation = P.playfield,
-                NextLocation    = route.Skip(1).First().Name,
+                NextLocation    = route.First().Name,
                 LastMessage     = DateTime.Now,
                 Target          = target,
                 Alias           = alias?.Alias 
@@ -149,6 +185,8 @@ namespace EmpyrionGalaxyNavigator
 
             Configuration.Current.NavigationTargets.AddOrUpdate(P.steamId, playerTarget, (K, D) => playerTarget);
             Configuration.Save();
+
+            GalaxyMap.DbAccess.InsertBookmarks(route.Take(1), P.factionId, P.entityId, GameAPI.Game_GetTickTime());
 
             MessagePlayer(playerId, $"Navigation started from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}' next target is {playerTarget.NextLocation}", MessagePriorityType.Alarm);
         }
@@ -158,12 +196,16 @@ namespace EmpyrionGalaxyNavigator
             var P = await Request_Player_Info(playerId.ToId());
             Configuration.Current.NavigationTargets.TryRemove(P.steamId, out _);
             Configuration.Save();
+
+            GalaxyMap.DbAccess.ClearPathMarkers(playerId);
         }
 
         private async Task DisplayHelp(int playerId)
         {
             var P = await Request_Player_Info(playerId.ToId());
-            await DisplayHelp(playerId, Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: '{P.playfield}' -> '{target.Target}{(string.IsNullOrEmpty(target.Alias) ? "" : $" / {target.Alias}")}'" : null);
+            await DisplayHelp(playerId, 
+                $"Player LY warp limit:{MaxTravelDistance(playerId)}\n" +
+                (Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: '{P.playfield}' -> '{target.Target}{(string.IsNullOrEmpty(target.Alias) ? "" : $" / {target.Alias}")}'" : ""));
         }
 
         private void LoadConfiguration()

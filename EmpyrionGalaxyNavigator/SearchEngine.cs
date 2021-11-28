@@ -31,23 +31,23 @@ namespace EmpyrionGalaxyNavigator
             if (routeNode.NearestToStart == null) return;
 
             list.Add(routeNode.NearestToStart);
-            var connection = node.Connections.SingleOrDefault(x => x.ConnectedNode == routeNode.NearestToStart);
-            ShortestPathCost += connection == null ? 0 : connection.Cost;
+            ShortestPathCost += routeNode.NearestToStart.StraightLineDistanceTo(node);
             BuildShortestPath(list, routeNode.NearestToStart);
         }
 
-        public List<Node> GetShortestPathAstart()
+        public List<Node> GetShortestPathAstart(double maxTravelDistance)
         {
-            RouteData = Map.Nodes.ToDictionary(N => N, N => new NodeRouteData() { StraightLineDistanceToEnd = N.StraightLineDistanceTo(End) });
-            AstarSearch();
-            var shortestPath = new List<Node>();
-            shortestPath.Add(End);
+            if (Start.StraightLineDistanceTo(End) <= maxTravelDistance) return new List<Node>() { Start, End };
+
+            RouteData = Map.Nodes.ToDictionary(N => N.Value, N => new NodeRouteData() { StraightLineDistanceToEnd = N.Value.StraightLineDistanceTo(End) });
+            AstarSearch(maxTravelDistance);
+            var shortestPath = new List<Node>{ End };
             BuildShortestPath(shortestPath, End);
             shortestPath.Reverse();
             return shortestPath;
         }
 
-        private void AstarSearch()
+        private void AstarSearch(double maxTravelDistance)
         {
             NodeVisits = 0;
             RouteData[Start].MinCostToStart = 0;
@@ -60,24 +60,20 @@ namespace EmpyrionGalaxyNavigator
                 NodeVisits++;
                 var routeNode = RouteData[node];
 
-                foreach (var cnn in node.Connections.OrderBy(x => x.Cost))
+                foreach (var childNode in Map.Nodes.Values.Where(n => n.StraightLineDistanceTo(node) <= maxTravelDistance))
                 {
-                    var childNode = cnn.ConnectedNode;
                     var childRouteNode = RouteData[childNode];
-                    if (childRouteNode.Visited)
-                        continue;
-                    if (childRouteNode.MinCostToStart == null ||
-                        routeNode.MinCostToStart + cnn.Cost < childRouteNode.MinCostToStart)
+                    if (childRouteNode.Visited) continue;
+
+                    if (childRouteNode.MinCostToStart == null || routeNode.MinCostToStart + childNode.StraightLineDistanceTo(node) < childRouteNode.MinCostToStart)
                     {
-                        childRouteNode.MinCostToStart = routeNode.MinCostToStart + cnn.Cost;
+                        childRouteNode.MinCostToStart = routeNode.MinCostToStart + childNode.StraightLineDistanceTo(node);
                         childRouteNode.NearestToStart = node;
-                        if (!prioQueue.Contains(childNode))
-                            prioQueue.Add(childNode);
+                        if (!prioQueue.Contains(childNode)) prioQueue.Add(childNode);
                     }
                 }
                 routeNode.Visited = true;
-                if (node == End)
-                    return;
+                if (node == End) return;
             } while (prioQueue.Any());
         }
     }

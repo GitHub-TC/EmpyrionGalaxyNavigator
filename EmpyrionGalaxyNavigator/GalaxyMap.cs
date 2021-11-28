@@ -1,207 +1,120 @@
 ﻿using System.Linq;
 using System.Collections.Generic;
-using System.IO;
-using EmpyrionNetAPITools.Extensions;
 using System.Numerics;
-using System;
 
 namespace EmpyrionGalaxyNavigator
 {
+    public class Const
+    {
+        public const int SectorsPerLY = 100000;
+    }
+
     public class NavPoint
     {
         public string Name { get; set; }
         public double Distance { get; set; }
-    }
+        public Vector3 Coordinates { get; internal set; }
+        public int PlayfieldId { get; internal set; }
 
-    public class SectorData
-    {
-        public List<int> Coordinates { get; set; }
-        public string Color { get; set; }
-        public string Icon { get; set; }
-        public bool OrbitLine { get; set; }
-        public string SectorMapType { get; set; }
-        public string ImageTemplateDir { get; set; }
-        public List<List<string>> Playfields { get; set; }
-        public List<string> Allow { get; set; }
-        public List<string> Deny { get; set; }
-    }
+        public override string ToString() => $"{Name} [{Distance / Const.SectorsPerLY:0} LY]";
 
-    public class SolarSystems
-    {
-        public string Name { get; set; }
-        public List<int> Coordinates { get; set; }
-        public string StarClass { get; set; }
-        public List<SectorData> Sectors { get; set; }
-    }
-
-    public class SectorsData
-    {
-        public bool GalaxyMode { get; set; }
-        public List<SectorData> Sectors { get; set; }
-        public List<SolarSystems> SolarSystems { get; set; }
     }
 
     public class GalaxyMap
     {
-        private const float MaxWarpDistance = 250;
+        public SaveGameDBAccess DbAccess { get; set; }
+        public Map SolarSystemNavMap { get; set; } = new Map();
+        public IDictionary<string, Map> SectorNavMap { get; set; } = new Dictionary<string, Map>();
+        public IDictionary<string, string> PlayfieldInSolarSystem { get; set; } = new Dictionary<string, string>();
+        public IDictionary<string, string> NameMapping { get; set; } = new Dictionary<string, string>();
 
-        public List<SectorData> Sectors { get; set; }
-        public Map GalaxyNavMap { get; private set; }
-        public Dictionary<string, Node> GalaxyNodes { get; private set; }
+        public bool Exists(string name) => NameMapping.ContainsKey(name.ToLowerInvariant().Replace(" ", ""));
+        public string RealName(string name) => NameMapping.TryGetValue(name.ToLowerInvariant().Replace(" ", ""), out var realName) ? realName : name;
 
-        public bool Exists(string name)
+        public void ReadDbData(string path)
         {
-            return Sectors.Any(S => S.Playfields.Any(P => P[1] == name));
+            DbAccess = new SaveGameDBAccess(path);
+            UpdateFromDb();
         }
 
-        public void ReadSectors(string path)
+        public void UpdateFromDb()
         {
-            Sectors = FlattenSectors(ReadSectorFiles(path));
-            BuildGalaxyNavMap();
-        }
+            SolarSystemNavMap = DbAccess.GetSolarSystems();
+            var sectorSystems = DbAccess.GetSectorSystems();
 
-        public void ReadSectorsData(string sectorsData)
-        {
-            Sectors = FlattenSectors(YamlExtensions.YamlToObject<SectorsData>(new StringReader(sectorsData)));
-            BuildGalaxyNavMap();
-        }
-
-        public static SectorsData ReadSectorFiles(string path)
-        {
-            SectorsData result;
-            using (var input = File.OpenText(Path.Combine(path, "Sectors.yaml")))
+            foreach (var item in SolarSystemNavMap.Nodes.Values)
             {
-                result = YamlExtensions.YamlToObject<SectorsData>(input);
+                if (sectorSystems.Nodes.TryGetValue(item.Name, out var pfNode)) item.PlayfieldId = pfNode.PlayfieldId;
             }
 
-            if (result.GalaxyMode)
+            var solarSystemsById = SolarSystemNavMap.Nodes.ToDictionary(N => N.Value.SolarSystemId, N => N.Key);
+
+            PlayfieldInSolarSystem = sectorSystems.Nodes.ToDictionary(N => N.Key, N => solarSystemsById[N.Value.SolarSystemId]);
+            SectorNavMap = sectorSystems.Nodes.Values
+                .GroupBy(N => N.SolarSystemId)
+                .ToDictionary(G => solarSystemsById[G.Key], G => new Map() { Nodes = G.ToDictionary(N => N.Name, N => N) });
+
+            NameMapping = PlayfieldInSolarSystem.Keys.ToDictionary(N => N.ToLowerInvariant(), N => N)
+                .Merge(SolarSystemNavMap.Nodes.Keys.ToDictionary(N => N.ToLowerInvariant(), N => N));
+        }
+
+        public List<NavPoint> Navigate(string startLocation, string destLocation, double maxTravelDistance)
+        {
+            var currentLocation = RealName(startLocation);
+            var destination     = RealName(destLocation);
+
+            var currentSolarSystem     = GetSolarSystem(currentLocation);
+            var destinationSolarSystem = GetSolarSystem(destination);
+
+            List<NavPoint> navPoints = new List<NavPoint>();
+
+            if(currentSolarSystem != destinationSolarSystem)
             {
-                Directory.GetFiles(path, "Sectors*.yaml")
-                    .Where(F => !Path.GetFileName(F).Equals("Sectors.yaml", StringComparison.InvariantCultureIgnoreCase))
-                    .ToList()
-                    .ForEach(F =>
-                    {
-                        using (var input = File.OpenText(F))
-                        {
-                            var AddSectorsData = YamlExtensions.YamlToObject<SectorsData>(input);
-                            if (AddSectorsData.GalaxyMode) result.SolarSystems.AddRange(AddSectorsData.SolarSystems);
-                        }
-                    });
+                navPoints.AddRange(CreateRoute(new SearchEngine(SolarSystemNavMap)
+                {
+                    Start = currentSolarSystem,
+                    End   = destinationSolarSystem
+                }.GetShortestPathAstart(maxTravelDistance))
+                .Skip(1));
             }
 
-            return result;
-        }
-
-        public static List<SectorData> FlattenSectors(SectorsData sectorsData)
-        {
-            if (sectorsData.SolarSystems == null) return sectorsData.Sectors;
-
-            var sectors = sectorsData.Sectors?.ToList() ?? new List<SectorData>();
-
-            sectorsData.SolarSystems.ForEach(U => {
-                U.Sectors.ForEach(S => {
-                    sectors.Add(new SectorData()
-                    {
-                        Coordinates         = new[] { S.Coordinates[0] + U.Coordinates[0], S.Coordinates[1] + U.Coordinates[1], S.Coordinates[2] + U.Coordinates[2] }.ToList(),
-                        Color               = S.Color,
-                        Icon                = S.Icon,
-                        OrbitLine           = S.OrbitLine,
-                        SectorMapType       = S.SectorMapType,
-                        ImageTemplateDir    = S.ImageTemplateDir,
-                        Playfields          = S.Playfields,
-                        Allow               = S.Allow,
-                        Deny                = S.Deny,
-                    });
-                });
-            });
-
-            return sectors;
-        }
-
-        private void BuildGalaxyNavMap()
-        {
-            GalaxyNavMap = new Map();
-
-            var allOrbits = Sectors
-                .Where(S => S.SectorMapType == null || (S.SectorMapType.ToLowerInvariant() != "none" && S.SectorMapType.ToLowerInvariant() != "warptarget"))
-                .Select(S =>
-                {
-                    var orbit = S.Playfields.Last();
-                    return new {
-                        Name    = orbit[1],
-                        Point   = new Vector3(S.Coordinates[0], S.Coordinates[1], S.Coordinates[2]),
-                        Planets = S.Playfields.Take(S.Playfields.Count - 1).Select(P => P[1]),
-                        S.Allow,
-                        S.Deny,
-                    };
-                })
-                .ToDictionary(O => O.Name, O => O);
-
-            Sectors.ForEach(S => {
-                var orbit = S.Playfields.Last();
-                var orbitNode = new Node()
-                {
-                    Name  = orbit[1],
-                    Point = new Vector3(S.Coordinates[0], S.Coordinates[1], S.Coordinates[2]),
-                };
-                GalaxyNavMap.Nodes.Add(orbitNode);
-
-                S.Playfields.Take(S.Playfields.Count - 1).ToList()
-                    .ForEach(P =>
-                    {
-                        var planetNode = new Node()
-                        {
-                            Name  = P[1],
-                            Point = new Vector3(S.Coordinates[0], S.Coordinates[1], S.Coordinates[2]),
-                        };
-                        GalaxyNavMap.Nodes.Add(planetNode);
-                        planetNode.Connections.Add(new Edge() { ConnectedNode = orbitNode,  Cost = 0 });
-                        orbitNode .Connections.Add(new Edge() { ConnectedNode = planetNode, Cost = 0 });
-                    });
-            });
-
-            GalaxyNodes = GalaxyNavMap.Nodes.ToDictionary(N => N.Name, N => N);
-
-            GalaxyNavMap.Nodes.ForEach(N => {
-                allOrbits.Where(T => T.Key != N.Name).ToList()
-                    .ForEach(T => {
-                        if (!allOrbits.TryGetValue(N.Name, out var O)) return;
-
-                        var dist = Vector3.Distance(N.Point, T.Value.Point);
-                        var warp = dist <= MaxWarpDistance;
-                        if (O.Deny  != null && O.Deny .Contains(T.Key)) warp = false;
-                        if (O.Allow != null && O.Allow.Contains(T.Key)) warp = true;
-
-                        if(warp) N.Connections.Add(new Edge(){ ConnectedNode = GalaxyNodes[T.Key], Cost = dist});
-                    });
-            });
-
-        }
-
-        public List<NavPoint> Navigate(string currentLocation, string destination)
-        {
-            var search = new SearchEngine(GalaxyNavMap)
+            if(destinationSolarSystem.Name != destination && SectorNavMap.TryGetValue(destinationSolarSystem.Name, out var sectorsMap))
             {
-                Start = GalaxyNodes[currentLocation],
-                End   = GalaxyNodes[destination]
-            };
+                navPoints.AddRange(CreateRoute(new SearchEngine(sectorsMap)
+                {
+                    Start = GetSunNode(sectorsMap, destinationSolarSystem.Name),
+                    End   = sectorsMap.Nodes[destination]
+                }.GetShortestPathAstart(double.MaxValue)
+                .Skip(1)));
+            }
 
-            return CreateRoute(search.GetShortestPathAstart());
+            return navPoints;
         }
+
+        private Node GetSunNode(Map sectorsMap, string sectorName)
+            => sectorsMap.Nodes.FirstOrDefault(n => n.Key.StartsWith($"{sectorName} [Sun")).Value;
+
+        private Node GetSolarSystem(string name) 
+            => SolarSystemNavMap.Nodes.TryGetValue(PlayfieldInSolarSystem.TryGetValue(name, out var solarSystem) ? solarSystem : name, out var nodeSolarSystem)
+                ? nodeSolarSystem
+                : null;
 
         private List<NavPoint> CreateRoute(IEnumerable<Node> list)
         {
             Node lastNode = null;
 
             return list
-                .Reverse()
                 .Select(N =>
                 {
-                    var n = new NavPoint() { Name = N.Name, Distance = lastNode == null ? 0 : N.Connections.First(C => C.ConnectedNode == lastNode).Cost };
+                    var n = new NavPoint() { 
+                        Name        = N.Name, 
+                        PlayfieldId = N.PlayfieldId, 
+                        Distance    = lastNode == null ? 0 : lastNode.StraightLineDistanceTo(N), 
+                        Coordinates = N.Coordinates 
+                    };
                     lastNode = N;
                     return n;
                 })
-                .Reverse()
                 .ToList();
         }
     }

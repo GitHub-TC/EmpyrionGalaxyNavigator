@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>EmpyrionGalaxyNavigator</RootNamespace>
     <AssemblyName>EmpyrionGalaxyNavigator</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <NuGetPackageImportStamp>
@@ -25,6 +25,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -35,47 +36,47 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="EmpyrionNetApi, Version=5.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\EmpyrionNetAPI.5.1.0\lib\net461\EmpyrionNetApi.dll</HintPath>
+    <Reference Include="EmpyrionNetApi, Version=6.0.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\EmpyrionNetAPI.6.0.5\lib\net48\EmpyrionNetApi.dll</HintPath>
     </Reference>
-    <Reference Include="EmpyrionNetApiBroker, Version=1.0.0.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\EmpyrionNetAPI.5.1.0\lib\net461\EmpyrionNetApiBroker.dll</HintPath>
+    <Reference Include="EmpyrionNetApiBroker, Version=1.0.2.1, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\EmpyrionNetAPI.6.0.5\lib\net48\EmpyrionNetApiBroker.dll</HintPath>
     </Reference>
-    <Reference Include="EmpyrionNetApiDefinitions, Version=5.0.5.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\EmpyrionNetAPI.5.1.0\lib\net461\EmpyrionNetApiDefinitions.dll</HintPath>
+    <Reference Include="EmpyrionNetApiDefinitions, Version=5.0.7.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\EmpyrionNetAPI.6.0.5\lib\net48\EmpyrionNetApiDefinitions.dll</HintPath>
     </Reference>
-    <Reference Include="EmpyrionNetApiModBase, Version=1.0.0.3, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\EmpyrionNetAPI.5.1.0\lib\net461\EmpyrionNetApiModBase.dll</HintPath>
+    <Reference Include="EmpyrionNetApiModBase, Version=1.0.2.1, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\EmpyrionNetAPI.6.0.5\lib\net48\EmpyrionNetApiModBase.dll</HintPath>
     </Reference>
-    <Reference Include="EmpyrionNetApiTools, Version=5.0.5.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\EmpyrionNetAPI.5.1.0\lib\net461\EmpyrionNetApiTools.dll</HintPath>
+    <Reference Include="EmpyrionNetApiTools, Version=5.0.7.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\EmpyrionNetAPI.6.0.5\lib\net48\EmpyrionNetApiTools.dll</HintPath>
     </Reference>
     <Reference Include="Mif">
       <HintPath>..\dependencies\Mif.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.12.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="System.Data.SQLite, Version=1.0.115.5, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
+      <HintPath>..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.115.5\lib\net46\System.Data.SQLite.dll</HintPath>
     </Reference>
+    <Reference Include="System.Numerics" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="YamlDotNet, Version=6.0.0.0, Culture=neutral, PublicKeyToken=ec19458f3c15af5e, processorArchitecture=MSIL">
-      <HintPath>..\packages\YamlDotNet.6.1.2\lib\net45\YamlDotNet.dll</HintPath>
+    <Reference Include="YamlDotNet, Version=11.0.0.0, Culture=neutral, PublicKeyToken=ec19458f3c15af5e, processorArchitecture=MSIL">
+      <HintPath>..\packages\YamlDotNet.11.2.1\lib\net45\YamlDotNet.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration.cs" />
+    <Compile Include="DictionariesExtensions.cs" />
     <Compile Include="GalaxyMap.cs" />
     <Compile Include="Map.cs" />
     <Compile Include="Navigator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SaveGameDBAccess.cs" />
     <Compile Include="SearchEngine.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -99,10 +100,14 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.props'))" />
     <Error Condition="!Exists('..\packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.targets'))" />
+    <Error Condition="!Exists('..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.115.5\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.115.5\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets'))" />
   </Target>
   <Import Project="..\packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.targets" Condition="Exists('..\packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.targets')" />
   <PropertyGroup>
     <PostBuildEvent>xcopy "$(TargetDir)*.dll" "C:\steamcmd\empyrion\Content\Mods\ModLoader\MODs\EmpyrionGalaxyNavigator" /Y
-xcopy "$(TargetDir)*.json" "C:\steamcmd\empyrion\Content\Mods\ModLoader\MODs\EmpyrionGalaxyNavigator" /Y</PostBuildEvent>
+xcopy "$(TargetDir)*.json" "C:\steamcmd\empyrion\Content\Mods\ModLoader\MODs\EmpyrionGalaxyNavigator" /Y
+xcopy "$(TargetDir)x86\*.*" "C:\steamcmd\empyrion\Content\Mods\ModLoader\MODs\EmpyrionGalaxyNavigator\x86\*.*" /Y
+xcopy "$(TargetDir)x64\*.*" "C:\steamcmd\empyrion\Content\Mods\ModLoader\MODs\EmpyrionGalaxyNavigator\x64\*.*" /Y</PostBuildEvent>
   </PropertyGroup>
+  <Import Project="..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.115.5\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets" Condition="Exists('..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.115.5\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" />
 </Project>
