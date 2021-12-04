@@ -203,8 +203,9 @@ namespace EmpyrionGalaxyNavigator
         private async Task DisplayHelp(int playerId)
         {
             var P = await Request_Player_Info(playerId.ToId());
-            await DisplayHelp(playerId, 
-                $"Player LY warp limit:{MaxTravelDistance(playerId)}\n" +
+            await DisplayHelp(playerId,
+                $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets\n" +
+                $"Player warp limit: {MaxTravelDistance(playerId)} LY\n" +
                 (Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: '{P.playfield}' -> '{target.Target}{(string.IsNullOrEmpty(target.Alias) ? "" : $" / {target.Alias}")}'" : ""));
         }
 

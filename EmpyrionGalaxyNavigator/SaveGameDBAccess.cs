@@ -50,7 +50,7 @@ namespace EmpyrionGalaxyNavigator
                 int stepNo = 1;
                 foreach (var p in positions)
                 {
-                    sql.Append($"({bid},1,0,1,{playerId},{playerId},{p.PlayfieldId},");
+                    sql.Append($"({bid},1,0,1,{playerId},{playerId},{(p.PlayfieldId == 0 ? "null" : p.PlayfieldId.ToString())},");
                     sql.Append($"'NavTo:{p.Name}',{p.Coordinates.X:0},{p.Coordinates.Y:0},{p.Coordinates.Z:0},0,0,0,1,0,");
                     sql.Append($"1,1,1,0,");
                     sql.Append($"{gameTicks},0,0,-1),");
