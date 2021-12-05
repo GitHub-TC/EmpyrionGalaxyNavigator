@@ -5,6 +5,7 @@ using EmpyrionNetAPITools;
 using EmpyrionNetAPITools.Extensions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -140,7 +141,9 @@ namespace EmpyrionGalaxyNavigator
 
         private async Task StartNavigation(int playerId, Dictionary<string, string> arguments)
         {
+            var galaxyReadTime = Stopwatch.StartNew();
             GalaxyMap.UpdateFromDb();
+            galaxyReadTime.Stop();
 
             var P = await Request_Player_Info(playerId.ToId());
             var target = arguments["target"]?.Trim();
@@ -156,17 +159,20 @@ namespace EmpyrionGalaxyNavigator
             target = GalaxyMap.RealName(target);
 
             var maxTravelDistance = MaxTravelDistance(playerId);
+            var navigateCalcTime = Stopwatch.StartNew();
             var route = GalaxyMap.Navigate(P.playfield, target, maxTravelDistance * Const.SectorsPerLY);
+            navigateCalcTime.Stop();
 
-            if(route.Count <= 1)
+            if (route.Count <= 1)
             {
                 InformPlayer(playerId, $"Sorry, no route from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}' found");
                 return;
             }
 
             var answer = await ShowDialog(playerId, P,
-                $"Travel from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}'",
-                $"Distance: {(int)route.Aggregate((double)0, (D, T) => D + T.Distance / Const.SectorsPerLY)} LY with max {maxTravelDistance} LY warp capacity\n{route.Aggregate("", (N, T) => $"{N}\n{T}")}{(alias == null ? "" : $"\n{alias.Alias}")}", "Yes", "No");
+                $"Travel from '[c][00ff00]{P.playfield}[-][/c]' to '[c][00ff00]{target}{(alias == null ? "" : $" / {alias.Alias}")}[-][/c]'",
+                $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets reading took {galaxyReadTime.ElapsedMilliseconds / 1000:0.000}s navigate took {navigateCalcTime.ElapsedMilliseconds / 1000:0.000}s\n" +
+                $"Distance: [c][ff00ff]{(int)route.Aggregate((double)0, (D, T) => D + T.Distance / Const.SectorsPerLY)}[-][/c] LY with max [c][ff00ff]{maxTravelDistance}[-][/c] LY warp capacity\n{route.Aggregate("", (N, T) => $"{N}\n{T}")}{(alias == null ? "" : $"\n{alias.Alias}")}", "Yes", "No");
             if (answer.Id != P.entityId || answer.Value != 0)
             {
                 MessagePlayer(playerId, $"Navigation canceled from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}'", MessagePriorityType.Alarm);
