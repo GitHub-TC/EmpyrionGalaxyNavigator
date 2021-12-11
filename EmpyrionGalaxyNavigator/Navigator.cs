@@ -38,11 +38,12 @@ namespace EmpyrionGalaxyNavigator
                 LogLevel = Configuration.Current.LogLevel;
                 ChatCommandManager.CommandPrefix = Configuration.Current.ChatCommandPrefix;
 
-                GalaxyMap = new GalaxyMap();
+                GalaxyMap = new GalaxyMap{ GalaxyAutoUpdateMinutes = Configuration.Current.GalaxyAutoUpdateMinutes };
                 GalaxyMap.ReadDbData(Path.Combine(EmpyrionConfiguration.SaveGamePath, "global.db"));
 
                 ChatCommands.Add(new ChatCommand(@"nav help",               (I, A) => DisplayHelp    (I.playerId), "display help"));
                 ChatCommands.Add(new ChatCommand(@"nav stop",               (I, A) => StopNavigation (I.playerId), "stops navigation"));
+                ChatCommands.Add(new ChatCommand(@"nav updategalaxy",       (I, A) => UpdateGalayMap (I.playerId), "force update the galaxy db"));
                 ChatCommands.Add(new ChatCommand(@"nav setwarp (?<LY>.*)",  (I, A) => SetWarpDistance(I.playerId, A), "set the warp distance for navigation to (LY)"));
                 ChatCommands.Add(new ChatCommand(@"nav (?<target>.*)",      (I, A) => StartNavigation(I.playerId, A), "start a navigation to (target)"));
 
@@ -54,6 +55,17 @@ namespace EmpyrionGalaxyNavigator
             {
                 Log($"**EmpyrionGalaxyNavigator Error: {Error} {string.Join(" ", Environment.GetCommandLineArgs())}", LogLevel.Error);
             }
+        }
+
+        private async Task UpdateGalayMap(int playerId)
+        {
+            var P = await Request_Player_Info(playerId.ToId());
+            
+            GalaxyMap.ForceUpdateFromDb();
+
+            await ShowDialog(playerId, P,
+                "Update Galay Map",
+                $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets reading took {GalaxyMap.GalaxyReadTime.ElapsedMilliseconds / 1000:0.0}s");
         }
 
         private async Task CheckPlayerNavMessages()
@@ -141,14 +153,18 @@ namespace EmpyrionGalaxyNavigator
 
         private async Task StartNavigation(int playerId, Dictionary<string, string> arguments)
         {
-            var galaxyReadTime = Stopwatch.StartNew();
             GalaxyMap.UpdateFromDb();
-            galaxyReadTime.Stop();
 
             var P = await Request_Player_Info(playerId.ToId());
             var target = arguments["target"]?.Trim();
             var alias = Configuration.Current.Aliases.FirstOrDefault(A => A.Alias == target);
             if (alias != null) target = alias.PlayfieldName;
+
+            if (!GalaxyMap.Exists(target))
+            {
+                // Force Update if not found for second try
+                GalaxyMap.ForceUpdateFromDb();
+            }
 
             if (!GalaxyMap.Exists(target))
             {
@@ -165,13 +181,23 @@ namespace EmpyrionGalaxyNavigator
 
             if (route.Count <= 1)
             {
+                // Force Update if not found for second try
+                GalaxyMap.ForceUpdateFromDb();
+
+                navigateCalcTime = Stopwatch.StartNew();
+                route = GalaxyMap.Navigate(P.playfield, target, maxTravelDistance * Const.SectorsPerLY);
+                navigateCalcTime.Stop();
+            }
+
+            if (route.Count <= 1)
+            {
                 InformPlayer(playerId, $"Sorry, no route from '{P.playfield}' to '{target}{(alias == null ? "" : $" / {alias.Alias}")}' found");
                 return;
             }
 
             var answer = await ShowDialog(playerId, P,
                 $"Travel from '[c][00ff00]{P.playfield}[-][/c]' to '[c][00ff00]{target}{(alias == null ? "" : $" / {alias.Alias}")}[-][/c]'",
-                $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets reading took {galaxyReadTime.ElapsedMilliseconds / 1000:0.000}s navigate took {navigateCalcTime.ElapsedMilliseconds / 1000:0.000}s\n" +
+                $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets reading took {GalaxyMap.GalaxyReadTime.ElapsedMilliseconds / 1000:0.0}s navigate took {navigateCalcTime.ElapsedMilliseconds / 1000:0.0}s\n" +
                 $"Distance: [c][ff00ff]{(int)route.Aggregate((double)0, (D, T) => D + T.Distance / Const.SectorsPerLY)}[-][/c] LY with max [c][ff00ff]{maxTravelDistance}[-][/c] LY warp capacity\n{route.Aggregate("", (N, T) => $"{N}\n{T}")}{(alias == null ? "" : $"\n{alias.Alias}")}", "Yes", "No");
             if (answer.Id != P.entityId || answer.Value != 0)
             {
@@ -210,7 +236,7 @@ namespace EmpyrionGalaxyNavigator
         {
             var P = await Request_Player_Info(playerId.ToId());
             await DisplayHelp(playerId,
-                $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets\n" +
+                $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets reading took {GalaxyMap.GalaxyReadTime.ElapsedMilliseconds / 1000:0.0}s\n" +
                 $"Player warp limit: {MaxTravelDistance(playerId)} LY\n" +
                 (Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: '{P.playfield}' -> '{target.Target}{(string.IsNullOrEmpty(target.Alias) ? "" : $" / {target.Alias}")}'" : ""));
         }

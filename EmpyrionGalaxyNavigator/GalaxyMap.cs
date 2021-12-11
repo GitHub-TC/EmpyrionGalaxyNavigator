@@ -1,6 +1,8 @@
 ﻿using System.Linq;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Diagnostics;
+using System;
 
 namespace EmpyrionGalaxyNavigator
 {
@@ -23,6 +25,9 @@ namespace EmpyrionGalaxyNavigator
     public class GalaxyMap
     {
         public SaveGameDBAccess DbAccess { get; set; }
+        public Stopwatch GalaxyReadTime { get; private set; }
+        public DateTime LastUpdateTime { get; set; } = DateTime.MinValue;
+        public int GalaxyAutoUpdateMinutes { get; set; }
         public Map SolarSystemNavMap { get; set; } = new Map();
         public IDictionary<string, Map> SectorNavMap { get; set; } = new Dictionary<string, Map>();
         public IDictionary<string, string> PlayfieldInSolarSystem { get; set; } = new Dictionary<string, string>();
@@ -34,11 +39,22 @@ namespace EmpyrionGalaxyNavigator
         public void ReadDbData(string path)
         {
             DbAccess = new SaveGameDBAccess(path);
+            ForceUpdateFromDb();
+        }
+
+        public void ForceUpdateFromDb()
+        {
+            LastUpdateTime = DateTime.MinValue;
             UpdateFromDb();
         }
 
         public void UpdateFromDb()
         {
+            if ((DateTime.Now - LastUpdateTime).TotalMinutes < GalaxyAutoUpdateMinutes) return;
+
+            LastUpdateTime = DateTime.Now;
+            GalaxyReadTime = Stopwatch.StartNew();
+
             SolarSystemNavMap = DbAccess.GetSolarSystems();
             var sectorSystems = DbAccess.GetSectorSystems();
 
@@ -56,6 +72,8 @@ namespace EmpyrionGalaxyNavigator
 
             NameMapping = PlayfieldInSolarSystem.Keys.ToDictionary(N => N.ToLowerInvariant(), N => N)
                 .Merge(SolarSystemNavMap.Nodes.Keys.ToDictionary(N => N.ToLowerInvariant(), N => N));
+
+            GalaxyReadTime.Stop();
         }
 
         public List<NavPoint> Navigate(string startLocation, string destLocation, double maxTravelDistance)
@@ -117,5 +135,6 @@ namespace EmpyrionGalaxyNavigator
                 })
                 .ToList();
         }
+
     }
 }
