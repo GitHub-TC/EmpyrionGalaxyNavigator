@@ -33,8 +33,11 @@ namespace EmpyrionGalaxyNavigator
         public IDictionary<string, string> PlayfieldInSolarSystem { get; set; } = new Dictionary<string, string>();
         public IDictionary<string, string> NameMapping { get; set; } = new Dictionary<string, string>();
 
-        public bool Exists(string name) => NameMapping.ContainsKey(name.ToLowerInvariant().Replace(" ", ""));
-        public string RealName(string name) => NameMapping.TryGetValue(name.ToLowerInvariant().Replace(" ", ""), out var realName) ? realName : name;
+        public bool Exists(string name) => NameMapping.ContainsKey(name.ToLowerInvariant().Trim()) || NameMapping.ContainsKey(name.ToLowerInvariant().Replace(" ", ""));
+        public string RealName(string name) =>
+            NameMapping.TryGetValue(name.ToLowerInvariant().Trim(), out var realPlainName)
+            ? realPlainName
+            : NameMapping.TryGetValue(name.ToLowerInvariant().Replace(" ", ""), out var realName) ? realName : name;
 
         public void ReadDbData(string path)
         {
