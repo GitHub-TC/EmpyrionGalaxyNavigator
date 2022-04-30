@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Threading.Tasks;
 
 namespace EmpyrionGalaxyNavigator
@@ -118,6 +117,7 @@ namespace EmpyrionGalaxyNavigator
                     CurrentLocation = currentPlayfield,
                     NextLocation    = newRoute.First().Name,
                     LastMessage     = DateTime.Now,
+                    Route           = newRoute,
                     Target          = currentRoute.Target,
                     Alias           = currentRoute.Alias
                 };
@@ -210,6 +210,7 @@ namespace EmpyrionGalaxyNavigator
                 Name            = P.playerName,
                 CurrentLocation = P.playfield,
                 NextLocation    = route.First().Name,
+                Route           = route,
                 LastMessage     = DateTime.Now,
                 Target          = target,
                 Alias           = alias?.Alias 

@@ -1,27 +1,10 @@
 ﻿using System.Linq;
 using System.Collections.Generic;
-using System.Numerics;
 using System.Diagnostics;
 using System;
 
 namespace EmpyrionGalaxyNavigator
 {
-    public class Const
-    {
-        public const int SectorsPerLY = 100000;
-    }
-
-    public class NavPoint
-    {
-        public string Name { get; set; }
-        public double Distance { get; set; }
-        public Vector3 Coordinates { get; internal set; }
-        public int PlayfieldId { get; internal set; }
-
-        public override string ToString() => $"{Name} [{Distance / Const.SectorsPerLY:0} LY]";
-
-    }
-
     public class GalaxyMap
     {
         public SaveGameDBAccess DbAccess { get; set; }

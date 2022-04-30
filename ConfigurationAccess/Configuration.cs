@@ -1,12 +1,32 @@
 ﻿using EmpyrionNetAPIDefinitions;
+using EmpyrionNetAPITools;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace EmpyrionGalaxyNavigator
 {
+    public class Const
+    {
+        public const int SectorsPerLY = 100000;
+    }
+
+    [Serializable]
+    public class NavPoint
+    {
+        public string Name { get; set; }
+        public double Distance { get; set; }
+        public Vector3 Coordinates { get; set; }
+        public int PlayfieldId { get; set; }
+        public string NavPointInfo => ToString();
+
+        public override string ToString() => $"{Name} [{Distance / Const.SectorsPerLY:0} LY]";
+
+    }
+
     [Serializable]
     public class PlayerTarget
     {
@@ -17,6 +37,7 @@ namespace EmpyrionGalaxyNavigator
         public string Target { get; set; }
         public string Alias { get; set; }
         public DateTime LastMessage { get; set; }
+        public List<NavPoint> Route { get; set; }
     }
 
     [Serializable]
@@ -46,4 +67,5 @@ namespace EmpyrionGalaxyNavigator
         public List<PlayerWarpDistance> Player { get; set; } = new List<PlayerWarpDistance>();
         public ConcurrentDictionary<string, PlayerTarget> NavigationTargets { get; set; } = new ConcurrentDictionary<string, PlayerTarget>();
     }
+
 }
