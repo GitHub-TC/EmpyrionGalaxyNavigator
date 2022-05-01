@@ -48,11 +48,12 @@ namespace EmpyrionGalaxyNavigator
     }
 
     [Serializable]
-    public class PlayerWarpDistance
+    public class PlayerSettings
     {
         public int PlayerId { get; set; }
         public string Name { get; set; }
         public int Distance { get; set; }
+        public bool HideMessages { get; set; }
     }
 
     [Serializable]
@@ -64,7 +65,7 @@ namespace EmpyrionGalaxyNavigator
         public int MessageLoopMS { get; set; } = 10000;
         public int GalaxyAutoUpdateMinutes { get; set; } = 10;
         public List<AliasName> Aliases { get; set; } = new List<AliasName>();
-        public List<PlayerWarpDistance> Player { get; set; } = new List<PlayerWarpDistance>();
+        public List<PlayerSettings> Player { get; set; } = new List<PlayerSettings>();
         public ConcurrentDictionary<string, PlayerTarget> NavigationTargets { get; set; } = new ConcurrentDictionary<string, PlayerTarget>();
     }
 

@@ -43,6 +43,7 @@ namespace EmpyrionGalaxyNavigator
                 ChatCommands.Add(new ChatCommand(@"nav help",               (I, A) => DisplayHelp    (I.playerId), "display help"));
                 ChatCommands.Add(new ChatCommand(@"nav stop",               (I, A) => StopNavigation (I.playerId), "stops navigation"));
                 ChatCommands.Add(new ChatCommand(@"nav updategalaxy",       (I, A) => UpdateGalayMap (I.playerId), "force update the galaxy db"));
+                ChatCommands.Add(new ChatCommand(@"nav togglemsg",          (I, A) => ToggleMessages (I.playerId), "switch the messages on/off"));
                 ChatCommands.Add(new ChatCommand(@"nav setwarp (?<LY>.*)",  (I, A) => SetWarpDistance(I.playerId, A), "set the warp distance for navigation to (LY)"));
                 ChatCommands.Add(new ChatCommand(@"nav (?<target>.*)",      (I, A) => StartNavigation(I.playerId, A), "start a navigation to (target)"));
 
@@ -54,6 +55,18 @@ namespace EmpyrionGalaxyNavigator
             {
                 Log($"**EmpyrionGalaxyNavigator Error: {Error} {string.Join(" ", Environment.GetCommandLineArgs())}", LogLevel.Error);
             }
+        }
+
+        private async Task ToggleMessages(int playerId)
+        {
+            var P = await Request_Player_Info(playerId.ToId());
+            var playerInfo = Configuration.Current.Player.SingleOrDefault(p => p.PlayerId == playerId);
+            if (playerInfo == null) Configuration.Current.Player.Add(playerInfo = new PlayerSettings { HideMessages = true });
+            else                    playerInfo.HideMessages = !playerInfo.HideMessages;
+
+            Configuration.Save();
+
+            InformPlayer(playerId, $"Messages for route navigation: {(playerInfo.HideMessages ? "off" : "on")}");
         }
 
         private async Task UpdateGalayMap(int playerId)
@@ -94,11 +107,14 @@ namespace EmpyrionGalaxyNavigator
 
             if (currentPlayfield == route.CurrentLocation && (DateTime.Now - route.LastMessage).TotalMilliseconds < Configuration.Current.MessageLoopMS) return;
 
-            if(currentPlayfield == route.Target)
+            var playerInfo = Configuration.Current.Player.SingleOrDefault(p => p.PlayerId == player.entityId);
+            if (playerInfo == null) Configuration.Current.Player.Add(playerInfo = new PlayerSettings());
+
+            if (currentPlayfield == route.Target)
             {
                 GalaxyMap.DbAccess.ClearPathMarkers(player.entityId);
 
-                InformPlayer(player.entityId, $"Congratulation you have reached '{route.NextLocation}' {(string.IsNullOrEmpty(route.Alias) ? "" : $" now fly to '{route.Alias}'")}");
+                if(!playerInfo.HideMessages) InformPlayer(player.entityId, $"Congratulation you have reached '{route.NextLocation}' {(string.IsNullOrEmpty(route.Alias) ? "" : $" now fly to '{route.Alias}'")}");
 
                 Configuration.Current.NavigationTargets.TryRemove(player.steamId, out _);
                 Configuration.Save();
@@ -125,7 +141,7 @@ namespace EmpyrionGalaxyNavigator
                 GalaxyMap.DbAccess.InsertBookmarks(newRoute.Take(1), player.factionId, player.entityId, GameAPI.Game_GetTickTime());
             }
 
-            InformPlayer(player.entityId, $"Please travel from '{currentPlayfield}' to '{route.NextLocation}'");
+            if (!playerInfo.HideMessages) InformPlayer(player.entityId, $"Please travel from '{currentPlayfield}' to '{route.NextLocation}'");
 
             route.LastMessage = DateTime.Now;
             Configuration.Current.NavigationTargets.AddOrUpdate(player.steamId, route, (K, D) => route);
@@ -133,13 +149,13 @@ namespace EmpyrionGalaxyNavigator
         }
 
         private double MaxTravelDistance(int playerId) 
-            => Configuration.Current.Player.SingleOrDefault(p => p.PlayerId == playerId)?.Distance ?? 30;
+            => Configuration.Current.Player?.SingleOrDefault(p => p.PlayerId == playerId)?.Distance ?? 30;
 
         private async Task SetWarpDistance(int playerId, Dictionary<string, string> arguments)
         {
             var P = await Request_Player_Info(playerId.ToId());
             var playerInfo = Configuration.Current.Player.SingleOrDefault(p => p.PlayerId == playerId);
-            if (playerInfo == null) Configuration.Current.Player.Add(playerInfo = new PlayerWarpDistance());
+            if (playerInfo == null) Configuration.Current.Player.Add(playerInfo = new PlayerSettings());
 
             var dist = int.TryParse(arguments["LY"]?.Trim(), out var ly) ? ly : 30;
             playerInfo.PlayerId = playerId;
@@ -236,10 +252,14 @@ namespace EmpyrionGalaxyNavigator
         private async Task DisplayHelp(int playerId)
         {
             var P = await Request_Player_Info(playerId.ToId());
+
+            var playerInfo = Configuration.Current.Player?.SingleOrDefault(p => p.PlayerId == playerId);
+
             await DisplayHelp(playerId,
                 $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets reading took {GalaxyMap.GalaxyReadTime.ElapsedMilliseconds / 1000:0.0}s\n" +
-                $"Player warp limit: {MaxTravelDistance(playerId)} LY\n" +
-                (Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: '{P.playfield}' -> '{target.Target}{(string.IsNullOrEmpty(target.Alias) ? "" : $" / {target.Alias}")}'" : ""));
+                $"Player warp limit: {MaxTravelDistance(playerId)} LY display nav messages {(playerInfo?.HideMessages == true ? "off" : "on")}\n" +
+                (Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: '{P.playfield}' -> '{target.Target}{(string.IsNullOrEmpty(target.Alias) ? "" : $" / {target.Alias}")}'" + 
+                target.Route?.Aggregate("", (r, t) => $"{r}\n{t}") : ""));
         }
 
         private void LoadConfiguration()
