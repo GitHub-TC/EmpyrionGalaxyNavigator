@@ -149,7 +149,7 @@ namespace EmpyrionGalaxyNavigator
         }
 
         private double MaxTravelDistance(int playerId) 
-            => Configuration.Current.Player?.SingleOrDefault(p => p.PlayerId == playerId)?.Distance ?? 30;
+            => Configuration?.Current?.Player?.SingleOrDefault(p => p.PlayerId == playerId)?.Distance ?? 30;
 
         private async Task SetWarpDistance(int playerId, Dictionary<string, string> arguments)
         {
@@ -251,15 +251,21 @@ namespace EmpyrionGalaxyNavigator
 
         private async Task DisplayHelp(int playerId)
         {
-            var P = await Request_Player_Info(playerId.ToId());
+            Log($"Configuration:{Configuration} Current:{Configuration?.Current} ConfigFilename:{Configuration?.ConfigFilename}", LogLevel.Debug);
+            Log($"GalaxyMap:{GalaxyMap} SolarSystemNavMap:{GalaxyMap?.SolarSystemNavMap} Nodes:{GalaxyMap?.SolarSystemNavMap?.Nodes?.Count} PlayfieldInSolarSystem:{GalaxyMap?.PlayfieldInSolarSystem?.Count} GalaxyReadTime:{GalaxyMap?.GalaxyReadTime?.ElapsedMilliseconds}", LogLevel.Debug);
 
+            var P = await Request_Player_Info(playerId.ToId());
             var playerInfo = Configuration.Current.Player?.SingleOrDefault(p => p.PlayerId == playerId);
+            bool currentTargetFound = Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var currentTarget);
+            Log($"Player:{P?.playerName} PlayerInfo:{playerInfo?.Name} MaxTravelDistance:{MaxTravelDistance(playerId)} TargetFound:{currentTargetFound}:{currentTarget?.CurrentLocation} Route:{currentTarget?.Route?.Count}", LogLevel.Debug);
 
             await DisplayHelp(playerId,
                 $"{GalaxyMap.SolarSystemNavMap.Nodes.Count} known systems and {GalaxyMap.PlayfieldInSolarSystem.Count} planets reading took {GalaxyMap.GalaxyReadTime.ElapsedMilliseconds / 1000:0.0}s\n" +
                 $"Player warp limit: {MaxTravelDistance(playerId)} LY display nav messages {(playerInfo?.HideMessages == true ? "off" : "on")}\n" +
-                (Configuration.Current.NavigationTargets.TryGetValue(P.steamId, out var target) ? $"Route: '{P.playfield}' -> '{target.Target}{(string.IsNullOrEmpty(target.Alias) ? "" : $" / {target.Alias}")}'" + 
-                target.Route?.Aggregate("", (r, t) => $"{r}\n{t}") : ""));
+                (currentTargetFound
+                    ? $"Route: '{P.playfield}' -> '{currentTarget.Target}{(string.IsNullOrEmpty(currentTarget.Alias) ? "" : $" / {currentTarget.Alias}")}'" + currentTarget.Route?.Aggregate("", (r, t) => $"{r}\n{t}") 
+                    : ""
+                ));
         }
 
         private void LoadConfiguration()
