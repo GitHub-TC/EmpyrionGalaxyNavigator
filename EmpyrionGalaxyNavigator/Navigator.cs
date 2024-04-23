@@ -23,6 +23,7 @@ namespace EmpyrionGalaxyNavigator
         {
             EmpyrionConfiguration.ModName = "EmpyrionGalaxyNavigator";
             SaveGameDBAccess.Log = Log;
+            DictionaryExtensions.Log = Log;
         }
 
         public override void Initialize(ModGameAPI dediAPI)

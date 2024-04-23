@@ -100,6 +100,6 @@
   <Import Project="..\packages\MSBuild.ILMerge.Task.1.1.3\build\MSBuild.ILMerge.Task.targets" Condition="Exists('..\packages\MSBuild.ILMerge.Task.1.1.3\build\MSBuild.ILMerge.Task.targets')" />
   <PropertyGroup>
     <PostBuildEvent>xcopy "$(TargetDir)*.dll" "C:\steamcmd\empyrion\Saves\Games\DefaultRE\Mods\EmpyrionGalaxyNavigator" /Y
-</PostBuildEvent>
+xcopy "$(TargetDir)*.dll" "C:\steamcmd\empyrion\Content\Mods\ModLoader\MODs\EmpyrionGalaxyNavigator" /Y</PostBuildEvent>
   </PropertyGroup>
 </Project>

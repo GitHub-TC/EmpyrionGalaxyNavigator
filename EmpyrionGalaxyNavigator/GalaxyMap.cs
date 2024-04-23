@@ -2,9 +2,63 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System;
+using EmpyrionNetAPIDefinitions;
 
 namespace EmpyrionGalaxyNavigator
 {
+    public static class DictionaryExtensions
+    {
+        public static Action<string, LogLevel> Log { get; set; } = (m, l) => Console.WriteLine(m);
+
+        public static Dictionary<KK,VV> ToSafeDictionary<K,V, KK, VV>(this Dictionary<K,V> dictionary, Func<KeyValuePair<K,V>, KK> getKey, Func<KeyValuePair<K, V>, VV> getValue)
+        {
+            var result = new Dictionary<KK,VV>();
+            foreach (var k in dictionary)
+            {
+                var key = getKey(k);
+                if (!result.ContainsKey(key)) result.Add(key, getValue(k));
+                else Log($"Duplicated:{key}", LogLevel.Message);
+            }
+            return result;
+        }
+
+        public static Dictionary<KK, VV> ToSafeDictionary<K, V, KK, VV>(this IEnumerable<IGrouping<K, V>> dictionary, Func<IGrouping<K, V>, KK> getKey, Func<IGrouping<K, V>, VV> getValue)
+        {
+            var result = new Dictionary<KK, VV>();
+            foreach (var k in dictionary)
+            {
+                var key = getKey(k);
+                if (!result.ContainsKey(key)) result.Add(key, getValue(k));
+                else Log($"Duplicated:{key}", LogLevel.Message);
+            }
+            return result;
+        }
+        public static Dictionary<KK, VV> ToSafeDictionary<K, V, KK, VV>(this IGrouping<K, V> dictionary, Func<V, KK> getKey, Func<V, VV> getValue)
+        {
+            var result = new Dictionary<KK, VV>();
+            foreach (var k in dictionary)
+            {
+                var key = getKey(k);
+                if (!result.ContainsKey(key)) result.Add(key, getValue(k));
+                else Log($"Duplicated:{key}", LogLevel.Message);
+            }
+            return result;
+        }
+
+        public static Dictionary<KK, VV> ToSafeDictionary<V, KK, VV>(this ICollection<V> dictionary, Func<V, KK> getKey, Func<V, VV> getValue)
+        {
+            var result = new Dictionary<KK, VV>();
+            foreach (var k in dictionary)
+            {
+                var key = getKey(k);
+                if (!result.ContainsKey(key)) result.Add(key, getValue(k));
+                else Log($"Duplicated:{key}", LogLevel.Message);
+            }
+            return result;
+        }
+
+    }
+
     public class GalaxyMap
     {
         public SaveGameDBAccess DbAccess { get; set; }
@@ -49,15 +103,15 @@ namespace EmpyrionGalaxyNavigator
                 if (sectorSystems.Nodes.TryGetValue(item.Name, out var pfNode)) item.PlayfieldId = pfNode.PlayfieldId;
             }
 
-            var solarSystemsById = SolarSystemNavMap.Nodes.ToDictionary(N => N.Value.SolarSystemId, N => N.Key);
+            var solarSystemsById = SolarSystemNavMap.Nodes.ToSafeDictionary(N => N.Value.SolarSystemId, N => N.Key);
 
-            PlayfieldInSolarSystem = sectorSystems.Nodes.ToDictionary(N => N.Key, N => solarSystemsById[N.Value.SolarSystemId]);
+            PlayfieldInSolarSystem = sectorSystems.Nodes.ToSafeDictionary(N => N.Key, N => solarSystemsById[N.Value.SolarSystemId]);
             SectorNavMap = sectorSystems.Nodes.Values
                 .GroupBy(N => N.SolarSystemId)
-                .ToDictionary(G => solarSystemsById[G.Key], G => new Map() { Nodes = G.ToDictionary(N => N.Name, N => N) });
+                .ToSafeDictionary(G => solarSystemsById[G.Key], G => new Map() { Nodes = G.ToSafeDictionary(N => N.Name, N => N) });
 
-            NameMapping = PlayfieldInSolarSystem.Keys.ToDictionary(N => N.ToLowerInvariant(), N => N)
-                .Merge(SolarSystemNavMap.Nodes.Keys.ToDictionary(N => N.ToLowerInvariant(), N => N));
+            NameMapping = PlayfieldInSolarSystem.Keys.ToSafeDictionary(N => N.ToLowerInvariant(), N => N)
+                .Merge(SolarSystemNavMap.Nodes.Keys.ToSafeDictionary(N => N.ToLowerInvariant(), N => N));
 
             GalaxyReadTime.Stop();
         }
