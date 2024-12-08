@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using EmpyrionGalaxyNavigator;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -61,6 +62,17 @@ namespace UnitTests
             Assert.AreEqual("A -> X2 -> Z",                                                                                       search.GetShortestPathAstart(100).Aggregate((string)null, (s, n) => s == null ? n.Name : $"{s} -> {n.Name}"));
             Assert.AreEqual("A -> Z",                                                                                             search.GetShortestPathAstart(200).Aggregate((string)null, (s, n) => s == null ? n.Name : $"{s} -> {n.Name}"));
         }
+
+        [TestMethod]
+        public void TestMethodTravelTestMapNew()
+        {
+            var map = new GalaxyMap();
+
+            map.ReadDbData(Path.Combine(Directory.GetCurrentDirectory(), @"..\..\global-new.db"));
+
+            Assert.AreEqual("Naamaromi [34 LY] -> Alpha [31 LY] -> Akua [0 LY]", map.Navigate("Adunti", "Akua", 40 * Const.SectorsPerLY).Aggregate((string)null, (s, n) => s == null ? n.ToString() : $"{s} -> {n}"));
+        }
+
 
         [TestMethod]
         public void TestMethodTravelTestMap()
